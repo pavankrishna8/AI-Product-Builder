@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from pydantic import BaseModel
 from database import engine
+from ai_analyzer import analyze_requirement
 
 app = FastAPI()
 
@@ -33,3 +34,8 @@ def create_requirement(requirement: RequirementCreate):
         "message": "Requirement received",
         "data": requirement.dict()
     }
+
+@app.post("/requirements/analyze")
+def analyze(requirement: RequirementCreate):
+    result = analyze_requirement(requirement.description)
+    return result
