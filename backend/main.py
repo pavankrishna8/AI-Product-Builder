@@ -4,6 +4,10 @@ from sqlalchemy import text
 from pydantic import BaseModel
 from database import engine
 from ai_analyzer import analyze_requirement
+from typing import Optional
+from pydantic import BaseModel, ValidationError
+
+
 
 app = FastAPI()
 
@@ -17,6 +21,14 @@ app.add_middleware(
 class RequirementCreate(BaseModel):
     title: str
     description: str
+
+class AnalysisResult(BaseModel):
+    status: str
+    problem: Optional[str] = None
+    target_users: Optional[str] = None
+    goals: list[str] = []
+    requirements: list[str] = []
+    open_questions: list[str] = []
 
 @app.get("/health")
 def health_check():
@@ -38,4 +50,15 @@ def create_requirement(requirement: RequirementCreate):
 @app.post("/requirements/analyze")
 def analyze(requirement: RequirementCreate):
     result = analyze_requirement(requirement.description)
-    return result
+    if result.get("status") == "error":
+        return result   # pass through analyzer-level errors (API failure, bad JSON) as-is
+
+    try:
+        validated = AnalysisResult(**result)
+        return validated.dict()
+    except ValidationError as e:
+        return {
+            "status": "error",
+            "error": "AI response did not match expected schema",
+            "details": str(e),
+        }
